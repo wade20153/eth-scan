@@ -1,0 +1,15 @@
+# Binaries
+bin/
+eth-scan
+
+# Log files
+logs/
+*.log
+
+# Configurations
+config/*.yaml
+config/*.toml
+.env
+
+# Dependencies
+vendor/
