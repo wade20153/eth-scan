@@ -1,9 +1,16 @@
 package scanner
 
-import "eth-scan/config"
+import (
+	"eth-scan/config"
+	"eth-scan/pkg/ethclient"
+	"sync"
+)
 
 type EthScanner struct {
-	cfg *config.Config
+	cfg               *config.Config
+	client            *ethclient.Eth
+	monitorAddressMap map[string]uint64 // key: 地址(小写), value: 用户ID
+	mapLock           sync.RWMutex      // 如果运行中会动态增加地址，需要加锁
 }
 
 func NewEthScanner(cfg *config.Config) *EthScanner {
