@@ -65,6 +65,16 @@ func (s *Sweeper) Sweep(ctx context.Context, record *repository.Transaction, eth
 			log.Printf("[归集] 未找到 %s 合约地址配置，跳过", record.TokenType)
 			return
 		}
+		// 先检查余额：若已为 0 说明被之前的合并归集打走了，直接记账关闭本笔
+		if bal, err := wallet.GetERC20Balance(contractAddr, record.ToAddress); err == nil && bal.Sign() == 0 {
+			log.Printf("[归集] %s 余额已为 0（已被合并归集），直接记账 txHash=%s userID=%d",
+				record.TokenType, record.TxHash, record.UserID)
+			standardAmount := utils.ToStandardUnit(record.Value, record.TokenType)
+			_ = repository.AddUserBalance(record.UserID, record.TokenType, standardAmount)
+			_ = repository.UpdateTransactionStatus(record.TxHash, 2)
+			log.Printf("[到账] userID=%d token=%s amount=%s", record.UserID, record.TokenType, standardAmount)
+			return
+		}
 		sweepOK = s.sweepERC20(ctx, record, privKeyHex, contractAddr, chainID)
 	}
 
