@@ -2,6 +2,8 @@ package repository
 
 import (
 	"errors"
+	"strings"
+	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -116,9 +118,10 @@ func DisableAddress(address string) error {
 }
 
 // GetEthAddressByAddress 按地址字符串查询记录（归集时用于获取派生索引）
+// 使用 LOWER() 避免 EIP-55 混合大小写与全小写不匹配问题
 func GetEthAddressByAddress(address string) (*EthAddress, error) {
 	var addr EthAddress
-	err := db.Where("address = ?", address).First(&addr).Error
+	err := db.Where("LOWER(address) = ?", strings.ToLower(address)).First(&addr).Error
 	return &addr, err
 }
 
@@ -135,6 +138,14 @@ func CreateTransactionIfNotExists(t *Transaction) (bool, error) {
 
 func UpdateTransactionStatus(txHash string, status int8) error {
 	return db.Model(&Transaction{}).Where("tx_hash = ?", txHash).Update("status", status).Error
+}
+
+// GetPendingTransactions 查询超过 minAge 时间仍未到账（status=0）的交易，用于重试归集
+func GetPendingTransactions(minAge time.Duration) ([]Transaction, error) {
+	var txs []Transaction
+	threshold := time.Now().Add(-minAge)
+	err := db.Where("status = 0 AND created_at < ?", threshold).Find(&txs).Error
+	return txs, err
 }
 
 // ---- ScanHeight ----
@@ -182,7 +193,7 @@ func AddUserBalance(userID uint64, tokenType, amount string) error {
 		}
 		// 用 SQL 直接做字符串转数值加法，避免 Go 层 big.Int 与数据库并发竞争
 		return tx.Model(&b).Update("balance",
-			gorm.Expr("CAST(balance AS DECIMAL(65,0)) + CAST(? AS DECIMAL(65,0))", amount),
+			gorm.Expr("CAST(balance AS DECIMAL(65,18)) + CAST(? AS DECIMAL(65,18))", amount),
 		).Error
 	})
 }

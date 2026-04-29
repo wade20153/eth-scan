@@ -9,6 +9,36 @@ var (
 	weiPerGwei  = new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)  // 10^9
 )
 
+// tokenDecimalsMap 各代币精度
+var tokenDecimalsMap = map[string]int64{
+	"ETH":  18,
+	"USDT": 6,
+	"USDC": 6,
+}
+
+// ToStandardUnit 将链上原始最小单位转为标准单位字符串
+// 例：ETH "1000000000000000000" → "1.000000000000000000"
+//
+//	USDT "600000000" → "600.000000"
+func ToStandardUnit(rawValue, tokenType string) string {
+	decimals, ok := tokenDecimalsMap[tokenType]
+	if !ok {
+		decimals = 18
+	}
+	raw, ok := new(big.Int).SetString(rawValue, 10)
+	if !ok || raw.Sign() == 0 {
+		return "0"
+	}
+	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil)
+	// 整数部分
+	quotient := new(big.Int).Quo(raw, divisor)
+	// 小数部分
+	remainder := new(big.Int).Rem(raw, divisor)
+	scale := new(big.Int).Mul(remainder, new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil))
+	fraction := new(big.Int).Quo(scale, divisor)
+	return quotient.String() + "." + zeroPad(fraction.String(), int(decimals))
+}
+
 // WeiToEtherString 将 Wei 转换为可读的 ETH 字符串（保留 6 位小数）
 // 仅用于日志展示，业务计算禁止使用此函数
 func WeiToEtherString(wei *big.Int) string {

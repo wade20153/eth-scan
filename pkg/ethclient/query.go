@@ -44,6 +44,21 @@ func (e *Eth) GetTransactionCount(ctx context.Context, address common.Address) (
 	return e.GetClient().PendingNonceAt(ctx, address)
 }
 
+// GetConfirmedNonce 获取地址已上链确认的 Nonce（不含 pending 交易）
+// 用于检测 mempool 中是否有积压的 pending 交易
+func (e *Eth) GetConfirmedNonce(ctx context.Context, address common.Address) (uint64, error) {
+	return e.GetClient().NonceAt(ctx, address, nil)
+}
+
+// GetBaseFee 获取最新区块的 base fee（EIP-1559 网络）
+func (e *Eth) GetBaseFee(ctx context.Context) (*big.Int, error) {
+	block, err := e.GetClient().BlockByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return block.BaseFee(), nil
+}
+
 // EstimateGas 预估交易所需 Gas Limit
 func (e *Eth) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	return e.GetClient().EstimateGas(ctx, msg)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +46,13 @@ func (m *NonceManager) GetNonce(ctx context.Context, address common.Address) (ui
 	return nonce, nil
 }
 
+// ForceNonce 强制设置地址的下一个可用 Nonce，用于修复 pending 积压
+func ForceNonce(address common.Address, nonce uint64) {
+	globalNonceManager.mu.Lock()
+	globalNonceManager.nonces[address.Hex()] = nonce
+	globalNonceManager.mu.Unlock()
+}
+
 // RollbackNonce 交易失败时回滚 Nonce，使下次重试可以复用该 Nonce
 func (m *NonceManager) RollbackNonce(address common.Address) {
 	key := address.Hex()
@@ -70,10 +78,10 @@ func (m *NonceManager) SyncNonce(ctx context.Context, address common.Address) er
 // SendETH 从 fromPrivKeyHex 地址向 to 发送 ETH
 // amount 单位 Wei，chainID 用于 EIP-155 签名
 func SendETH(fromPrivKeyHex string, to common.Address, amount *big.Int, chainID *big.Int) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	privateKey, err := crypto.HexToECDSA(fromPrivKeyHex)
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(fromPrivKeyHex, "0x"))
 	if err != nil {
 		return "", fmt.Errorf("私钥解析失败: %w", err)
 	}
@@ -117,11 +125,13 @@ func SendETH(fromPrivKeyHex string, to common.Address, amount *big.Int, chainID 
 
 // SendERC20 从 fromPrivKeyHex 地址向 to 发送 ERC20 代币
 // contractAddr: 合约地址；amount: 代币最小单位数量
+// 若遇到 "replacement transaction underpriced"（mempool 中有同 nonce 旧交易），
+// 自动将 gasPrice 提升 20% 重试，最多 3 次，实现加速替换。
 func SendERC20(fromPrivKeyHex string, contractAddr, to common.Address, amount *big.Int, callData []byte, chainID *big.Int) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	privateKey, err := crypto.HexToECDSA(fromPrivKeyHex)
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(fromPrivKeyHex, "0x"))
 	if err != nil {
 		return "", fmt.Errorf("私钥解析失败: %w", err)
 	}
@@ -148,18 +158,37 @@ func SendERC20(fromPrivKeyHex string, contractAddr, to common.Address, amount *b
 		return "", fmt.Errorf("预估 Gas 失败: %w", err)
 	}
 
-	// ERC20 转账 tx.Value = 0，金额在 callData 中
-	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(0), gasLimit, gasPrice, callData)
 	signer := types.NewEIP155Signer(chainID)
-	signedTx, err := types.SignTx(tx, signer, privateKey)
-	if err != nil {
-		globalNonceManager.RollbackNonce(from)
-		return "", fmt.Errorf("交易签名失败: %w", err)
-	}
+	for attempt := 0; attempt < 3; attempt++ {
+		// ERC20 转账 tx.Value = 0，金额在 callData 中
+		tx := types.NewTransaction(nonce, contractAddr, big.NewInt(0), gasLimit, gasPrice, callData)
+		signedTx, err := types.SignTx(tx, signer, privateKey)
+		if err != nil {
+			globalNonceManager.RollbackNonce(from)
+			return "", fmt.Errorf("交易签名失败: %w", err)
+		}
 
-	if err = ethclient.GetInstance().SendRawTransaction(ctx, signedTx); err != nil {
+		err = ethclient.GetInstance().SendRawTransaction(ctx, signedTx)
+		if err == nil {
+			return signedTx.Hash().Hex(), nil
+		}
+
+		if strings.Contains(err.Error(), "replacement transaction underpriced") {
+			// mempool 中存在同 nonce 旧交易，回滚并用 +50% gasPrice 加速替换
+			globalNonceManager.RollbackNonce(from)
+			nonce, err = globalNonceManager.GetNonce(ctx, from)
+			if err != nil {
+				return "", err
+			}
+			gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(150))
+			gasPrice.Div(gasPrice, big.NewInt(100))
+			continue
+		}
+
 		globalNonceManager.RollbackNonce(from)
 		return "", fmt.Errorf("广播失败: %w", err)
 	}
-	return signedTx.Hash().Hex(), nil
+
+	globalNonceManager.RollbackNonce(from)
+	return "", fmt.Errorf("广播失败: nonce 冲突，已重试 3 次")
 }

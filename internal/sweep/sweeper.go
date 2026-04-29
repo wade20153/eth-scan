@@ -14,13 +14,14 @@ import (
 	"eth-scan/internal/contract"
 	"eth-scan/internal/wallet"
 	"eth-scan/pkg/ethclient"
+	"eth-scan/pkg/utils"
 	"eth-scan/repository"
 )
 
-const gasReserveWei = int64(500_000_000_000_000)     // ETH 归集预留 Gas：0.0005 ETH
-const erc20GasSupplyWei = int64(300_000_000_000_000) // 补给子地址的 Gas：0.0003 ETH
-const confirmPollInterval = 3 * time.Second
-const confirmTimeout = 60 * time.Second
+const ethTransferGasLimit = int64(21_000)   // ETH 标准转账固定 Gas
+const erc20TransferGasLimit = int64(80_000) // ERC20 transfer 预估 Gas（含 buffer）
+const confirmPollInterval = 5 * time.Second
+const confirmTimeout = 5 * time.Minute // 等待 gas 到账最多 5 分钟（防止测试网拥堵超时）
 
 // Sweeper 资金归集器
 type Sweeper struct {
@@ -71,8 +72,10 @@ func (s *Sweeper) Sweep(ctx context.Context, record *repository.Transaction, eth
 		return
 	}
 
-	// ★ 归集成功：给用户余额加上本次充值金额（原始充值额，Gas 损耗由平台承担）
-	if err := repository.AddUserBalance(record.UserID, record.TokenType, record.Value); err != nil {
+	// ★ 归集成功：链上原始值换算为标准单位后存入余额表
+	// USDT 600000000 → "600.000000"，ETH 1e18 → "1.000000000000000000"
+	standardAmount := utils.ToStandardUnit(record.Value, record.TokenType)
+	if err := repository.AddUserBalance(record.UserID, record.TokenType, standardAmount); err != nil {
 		log.Printf("[归集] 更新用户余额失败 userID=%d token=%s: %v", record.UserID, record.TokenType, err)
 		return
 	}
@@ -83,7 +86,7 @@ func (s *Sweeper) Sweep(ctx context.Context, record *repository.Transaction, eth
 		return
 	}
 
-	log.Printf("[到账] userID=%d token=%s amount=%s", record.UserID, record.TokenType, record.Value)
+	log.Printf("[到账] userID=%d token=%s amount=%s", record.UserID, record.TokenType, standardAmount)
 }
 
 // sweepETH 归集 ETH，返回是否成功
@@ -94,13 +97,21 @@ func (s *Sweeper) sweepETH(ctx context.Context, record *repository.Transaction, 
 		return false
 	}
 
-	reserve := big.NewInt(gasReserveWei)
+	// 动态计算实际 Gas 费：gasPrice × 21000 + 20% buffer，避免固定值导致小额充值无法归集
+	gasPrice, err := ethclient.GetInstance().GetSuggestGasPrice(ctx)
+	if err != nil {
+		log.Printf("[归集-ETH] 获取 GasPrice 失败: %v", err)
+		return false
+	}
+	gasCost := new(big.Int).Mul(gasPrice, big.NewInt(ethTransferGasLimit))
+	reserve := new(big.Int).Mul(gasCost, big.NewInt(120))
+	reserve.Div(reserve, big.NewInt(100))
+
 	if balance.Cmp(reserve) <= 0 {
-		log.Printf("[归集-ETH] 余额不足以归集 addr=%s balance=%s", record.ToAddress, balance.String())
+		log.Printf("[归集-ETH] 余额不足以归集 addr=%s balance=%s reserve=%s", record.ToAddress, balance.String(), reserve.String())
 		return false
 	}
 
-	// 可归集金额 = 当前余额 - Gas 预留
 	sweepAmount := new(big.Int).Sub(balance, reserve)
 	txHash, err := wallet.SendETH(childPrivKey, s.hotWallet, sweepAmount, chainID)
 	if err != nil {
@@ -121,19 +132,32 @@ func (s *Sweeper) sweepERC20(ctx context.Context, record *repository.Transaction
 		return false
 	}
 
-	// 第一步：子地址 ETH 不足时，由热钱包补 Gas
+	// 第一步：查询子地址 ETH 余额，不足则由热钱包补足
+	// 补给目标 = suggestedGasPrice × gasLimit × 1.5，确保有足够 ETH 覆盖 ERC20 转账 gas
+	gasPrice, err := ethclient.GetInstance().GetSuggestGasPrice(ctx)
+	if err != nil {
+		log.Printf("[归集-ERC20] 获取 GasPrice 失败: %v", err)
+		return false
+	}
+	gasTarget := new(big.Int).Mul(gasPrice, big.NewInt(erc20TransferGasLimit))
+	gasTarget.Mul(gasTarget, big.NewInt(3))
+	gasTarget.Div(gasTarget, big.NewInt(2)) // × 1.5
+
 	childETHBalance, _ := wallet.GetEthBalance(record.ToAddress)
-	gasSupply := big.NewInt(erc20GasSupplyWei)
-	if childETHBalance.Cmp(gasSupply) < 0 {
+	log.Printf("[归集-ERC20] 子地址 ETH 余额: %s Wei，Gas 目标: %s Wei", childETHBalance.String(), gasTarget.String())
+
+	if childETHBalance.Cmp(gasTarget) < 0 {
+		// 补到 gasTarget，让子地址有足够 ETH 完成 ERC20 转账
+		supplyAmount := new(big.Int).Sub(gasTarget, childETHBalance)
 		toAddr := common.HexToAddress(record.ToAddress)
-		gasTxHash, err := wallet.SendETH(s.hotPrivKey, toAddr, gasSupply, chainID)
+		log.Printf("[归集-ERC20] ETH 不足，从热钱包补 %s Wei", supplyAmount.String())
+		gasTxHash, err := wallet.SendETH(s.hotPrivKey, toAddr, supplyAmount, chainID)
 		if err != nil {
 			log.Printf("[归集-ERC20] 补 Gas 失败 addr=%s: %v", record.ToAddress, err)
 			return false
 		}
 		log.Printf("[归集-ERC20] 补 Gas txHash=%s，等待确认...", gasTxHash)
-
-		if err := s.waitForETHBalance(ctx, record.ToAddress, gasSupply); err != nil {
+		if err := s.waitForETHBalance(ctx, record.ToAddress, gasTarget); err != nil {
 			log.Printf("[归集-ERC20] 等待 Gas 确认超时 addr=%s: %v", record.ToAddress, err)
 			return false
 		}
@@ -158,9 +182,10 @@ func (s *Sweeper) sweepERC20(ctx context.Context, record *repository.Transaction
 	return true
 }
 
-// waitForETHBalance 轮询等待子地址 ETH 余额到达目标值
+// waitForETHBalance 轮询等待子地址 ETH 余额到达目标值，确认到账后再执行 ERC20 转账
 func (s *Sweeper) waitForETHBalance(ctx context.Context, addr string, target *big.Int) error {
 	deadline := time.Now().Add(confirmTimeout)
+	log.Printf("[归集-ERC20] 等待 Gas 到账 addr=%s 目标=%s Wei（最多 %v）", addr, target.String(), confirmTimeout)
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
@@ -169,11 +194,71 @@ func (s *Sweeper) waitForETHBalance(ctx context.Context, addr string, target *bi
 		}
 		balance, err := wallet.GetEthBalance(addr)
 		if err == nil && balance.Cmp(target) >= 0 {
+			log.Printf("[归集-ERC20] Gas 已到账 addr=%s balance=%s Wei，开始 ERC20 转账", addr, balance.String())
 			return nil
 		}
 		time.Sleep(confirmPollInterval)
 	}
 	return fmt.Errorf("等待超时（%v）", confirmTimeout)
+}
+
+// StartRetryLoop 启动后台重试协程，定期扫描 status=0 且超过 minAge 的交易并重新归集
+// 适用场景：首次归集因超时/网络抖动失败，确保资金最终一定归集到热钱包
+func (s *Sweeper) StartRetryLoop(ctx context.Context, minAge time.Duration, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.retryPending(ctx, minAge)
+			}
+		}
+	}()
+}
+
+// retryPending 查询所有未到账交易，逐笔重新触发归集
+func (s *Sweeper) retryPending(ctx context.Context, minAge time.Duration) {
+	txs, err := repository.GetPendingTransactions(minAge)
+	if err != nil {
+		log.Printf("[重试归集] 查询待处理交易失败: %v", err)
+		return
+	}
+	if len(txs) == 0 {
+		return
+	}
+	log.Printf("[重试归集] 发现 %d 笔未到账交易，开始重试...", len(txs))
+
+	master, err := repository.GetDefaultMasterWallet()
+	if err != nil {
+		log.Printf("[重试归集] 获取主钱包失败: %v", err)
+		return
+	}
+
+	for i := range txs {
+		tx := &txs[i]
+		ethAddr, err := repository.GetEthAddressByAddress(tx.ToAddress)
+		if err != nil {
+			log.Printf("[重试归集] 查询地址记录失败 addr=%s txHash=%s: %v", tx.ToAddress, tx.TxHash, err)
+			continue
+		}
+
+		// 检测 pending nonce 积压：若子地址有多笔卡住的交易，重置到已确认 nonce
+		// 这样新交易会替换最早那笔卡住的（nonce 最小），而不是追加到末尾
+		childAddr := common.HexToAddress(tx.ToAddress)
+		if confirmedNonce, err := ethclient.GetInstance().GetConfirmedNonce(ctx, childAddr); err == nil {
+			if pendingNonce, _ := ethclient.GetInstance().GetTransactionCount(ctx, childAddr); pendingNonce > confirmedNonce {
+				log.Printf("[重试归集] pending 积压 addr=%s confirmed=%d pending=%d，重置 nonce",
+					tx.ToAddress, confirmedNonce, pendingNonce)
+				wallet.ForceNonce(childAddr, confirmedNonce)
+			}
+		}
+
+		log.Printf("[重试归集] 重试 txHash=%s token=%s userID=%d", tx.TxHash, tx.TokenType, tx.UserID)
+		go s.Sweep(ctx, tx, ethAddr, master.MnemonicPlain)
+	}
 }
 
 // getContractAddress 根据代币符号从配置查合约地址

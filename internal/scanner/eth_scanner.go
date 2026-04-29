@@ -102,6 +102,12 @@ func (s *EthScanner) Start(ctx context.Context) {
 	s.currentBlockNum = localNum
 	log.Printf("以太坊扫块服务启动，从高度 [%d] 开始...", s.currentBlockNum)
 
+	// 启动归集重试后台协程：每 2 分钟扫一次，重试超过 1 分钟仍 status=0 的交易
+	if s.sweeper != nil {
+		s.sweeper.StartRetryLoop(ctx, 1*time.Minute, 2*time.Minute)
+		log.Println("归集重试协程已启动（间隔 2 分钟）")
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -150,10 +156,13 @@ func (s *EthScanner) tick(ctx context.Context) error {
 		}
 	}
 
-	// 持久化当前扫块进度，重启后从此高度续扫
-	if err := repository.UpdateScanHeight(chainName, s.currentBlockNum); err != nil {
-		log.Printf("更新扫块高度失败: %v", err)
-	}
+	// 持久化当前扫块进度，异步写入不阻塞扫块主循环
+	blockNum := s.currentBlockNum
+	go func() {
+		if err := repository.UpdateScanHeight(chainName, blockNum); err != nil {
+			log.Printf("更新扫块高度失败: %v", err)
+		}
+	}()
 	// 当前区块高度+1
 	s.currentBlockNum++
 	return nil
