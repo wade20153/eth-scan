@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"eth-scan/config"
+	"eth-scan/internal/sweep"
 	"eth-scan/pkg/ethclient"
 	"eth-scan/repository"
 )
@@ -29,7 +30,7 @@ const (
 var transferEventSig = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
 
 // EthScanner 以太坊区块扫描器
-// 职责：轮询区块 → 解析 ETH 转账 + ERC20 Transfer 事件 → 识别充值 → 写入数据库
+// 职责：轮询区块 → 解析 ETH 转账 + ERC20 Transfer 事件 → 识别充值 → 写入数据库 → 触发归集
 type EthScanner struct {
 	cfg             *config.Config
 	client          *ethclient.Eth
@@ -38,6 +39,7 @@ type EthScanner struct {
 	contractMap     map[string]string // ERC20 合约表：key=合约地址(小写), value=代币符号
 	erc20Addresses  []common.Address  // 供 FilterQuery 使用的合约地址切片
 	currentBlockNum uint64            // 当前待扫描的区块高度
+	sweeper         *sweep.Sweeper    // 资金归集器，检测到充值后异步触发归集
 }
 
 // NewEthScanner 创建扫块实例，注入配置与 RPC 客户端单例
@@ -49,6 +51,13 @@ func NewEthScanner(cfg *config.Config) *EthScanner {
 		contractMap:     make(map[string]string),
 	}
 	s.loadERC20Contracts()
+
+	// 归集器初始化，hot_wallet 未配置时仅记录日志不归集
+	if sw, err := sweep.NewSweeper(cfg); err != nil {
+		log.Printf("⚠️  归集器未启用: %v", err)
+	} else {
+		s.sweeper = sw
+	}
 	return s
 }
 
@@ -262,7 +271,7 @@ func (s *EthScanner) processERC20Logs(ctx context.Context, blockNum uint64) erro
 	return nil
 }
 
-// saveTransaction 幂等写入充值记录，tx_hash 已存在则跳过
+// saveTransaction 幂等写入充值记录，命中新记录后异步触发归集
 func (s *EthScanner) saveTransaction(record *repository.Transaction) {
 	created, err := repository.CreateTransactionIfNotExists(record)
 	if err != nil {
@@ -274,6 +283,28 @@ func (s *EthScanner) saveTransaction(record *repository.Transaction) {
 	}
 	log.Printf("命中充值! token=%s 用户ID=%d Hash=%s 金额=%s",
 		record.TokenType, record.UserID, record.TxHash, record.Value)
+
+	// 归集器未配置时跳过
+	if s.sweeper == nil {
+		return
+	}
+
+	// 查询充值地址的派生索引（用于还原私钥）
+	ethAddr, err := repository.GetEthAddressByAddress(record.ToAddress)
+	if err != nil {
+		log.Printf("[归集] 查询地址记录失败 addr=%s: %v", record.ToAddress, err)
+		return
+	}
+
+	// 获取主钱包助记词
+	master, err := repository.GetDefaultMasterWallet()
+	if err != nil {
+		log.Printf("[归集] 获取主钱包失败: %v", err)
+		return
+	}
+
+	// 异步归集，不阻塞扫块主循环
+	go s.sweeper.Sweep(context.Background(), record, ethAddr, master.MnemonicPlain)
 }
 
 // FreshWatchAddressMap 从数据库全量加载 status=1 的监控地址到内存

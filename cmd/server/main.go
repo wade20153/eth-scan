@@ -18,7 +18,8 @@ import (
 )
 
 func main() {
-	migrate := flag.Bool("migrate", false, "执行数据库迁移后退出（仅首次部署或表结构变更时使用）")
+	migrate := flag.Bool("migrate", false, "执行数据库迁移后退出")
+	seedRates := flag.Bool("seed-rates", false, "写入初始汇率后退出")
 	flag.Parse()
 
 	// 1. 加载配置
@@ -41,6 +42,23 @@ func main() {
 			log.Fatalf("助记词回填失败: %v", err)
 		}
 		log.Println("✅ 助记词明文回填完成")
+		return
+	}
+
+	// 3.5 写入初始汇率
+	if *seedRates {
+		rates := []struct{ token, rate string }{
+			{"ETH", "15926.00"}, // 1 ETH ≈ 15926 CNY（2026-04）
+			{"USDT", "7.25"},    // 1 USDT ≈ 7.25 CNY
+			{"USDC", "7.25"},    // 1 USDC ≈ 7.25 CNY
+		}
+		for _, r := range rates {
+			if err := repository.UpsertExchangeRate(r.token, r.rate, "init"); err != nil {
+				log.Fatalf("写入 %s 汇率失败: %v", r.token, err)
+			}
+			log.Printf("  ✅ %s = %s CNY", r.token, r.rate)
+		}
+		log.Println("✅ 汇率初始化完成")
 		return
 	}
 
