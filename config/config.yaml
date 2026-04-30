@@ -1,0 +1,30 @@
+server:
+  port: "9000"
+
+blockchain:
+  eth_api_url:
+    - "https://sepolia.infura.io/v3/de7182c357fd4b53a25d46787673e9f7"
+    # - "https://mainnet.infura.io/v3/300127638e474cf29b8632f7a946f334"  # 主网，上线时启用
+  erc20_contracts:
+    # ---- 当前使用：Sepolia 测试网 ----
+    - address: "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06"  # Sepolia USDT
+      symbol: "USDT"
+    - address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"  # Sepolia USDC
+      symbol: "USDC"
+    # ---- 上线时替换为主网地址 ----
+    # - address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"  # Mainnet USDT
+    #   symbol: "USDT"
+    # - address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # Mainnet USDC
+    #   symbol: "USDC"
+  eth_min_gas_amount: "810000000000000"
+  eth_min_usdt_amount: "5000000"
+
+database:
+  dsn: "root:123456@tcp(127.0.0.1:3306)/eth_scan?charset=utf8mb4&parseTime=True&loc=Local"
+
+security:
+  mnemonic_salt: "change-this-to-a-random-secret-string-in-production"
+
+hot_wallet:
+  address: "0x1fc56d778d9873854dcb6cc30836abc28a763f15"      # 入金归集地址，所有子地址资产归集到此
+  private_key: "0x3fa73116eee1c056008b27c4bc0a09d9d172177d1dceec39dc2be8da5bf60edd"  # 入金地址私钥，用于给子地址补 Gas（生产环境改用环境变量）
