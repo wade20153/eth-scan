@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package wallet;
+
+option go_package = "eth-scan/internal/grpcserver/pb";
+
+service WalletService {
+  // 创建 HD 钱包，对应 GET /api/wallet/create
+  rpc CreateHDWallet(CreateHDWalletRequest) returns (CreateHDWalletResponse);
+  // 从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+  rpc BatchCreateUsers(BatchCreateUsersRequest) returns(BatchCreateUsersResponse);
+}
+
+// 创建钱包无需入参
+message CreateHDWalletRequest {}
+//
+message BatchCreateUsersRequest{}
+
+message CreateHDWalletResponse {
+  uint64 wallet_id = 1;
+  string address   = 2;
+}
+// BatchCreateUsersResponse 接口返回
+message BatchCreateUsersResponse {
+  repeated UserResult users=1;
+
+}
+message UserResult{
+  uint32 user_id =1;
+  string username =2;
+  string address =3;
+  uint32 derive_index=4;
+}

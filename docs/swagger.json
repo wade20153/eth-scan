@@ -1,0 +1,188 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "以太坊钱包扫块服务，提供 HD 钱包管理、余额查询及汇率管理接口。",
+        "title": "eth-scan API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api",
+    "paths": {
+        "/balance/{user_id}": {
+            "get": {
+                "description": "查询指定用户所有代币余额（ETH/USDT/USDC），并附带人民币估值",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "balance"
+                ],
+                "summary": "查询用户余额",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "token_type, balance, balance_str, cny_rate, cny_value",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "user_id 无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "错误信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/exchange-rate": {
+            "get": {
+                "description": "查询所有代币（ETH/USDT/USDC）对人民币的汇率",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "exchange-rate"
+                ],
+                "summary": "查询所有汇率",
+                "responses": {
+                    "200": {
+                        "description": "汇率列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "错误信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "新增或更新指定代币对人民币的汇率",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "exchange-rate"
+                ],
+                "summary": "新增或更新汇率",
+                "parameters": [
+                    {
+                        "description": "汇率信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "错误信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/wallet/batch-users": {
+            "get": {
+                "description": "从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "wallet"
+                ],
+                "summary": "批量创建用户",
+                "responses": {
+                    "200": {
+                        "description": "users: 用户列表(user_id, username, address, derive_index)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "错误信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/wallet/create": {
+            "get": {
+                "description": "生成 BIP-44 HD 钱包，助记词 AES-GCM 加密后入库，返回钱包 ID 与主地址（不返回助记词）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "wallet"
+                ],
+                "summary": "创建 HD 钱包",
+                "responses": {
+                    "200": {
+                        "description": "wallet_id: 钱包ID, address: 主地址",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "错误信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

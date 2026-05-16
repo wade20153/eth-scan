@@ -1,0 +1,128 @@
+basePath: /api
+host: localhost:8080
+info:
+  contact: {}
+  description: 以太坊钱包扫块服务，提供 HD 钱包管理、余额查询及汇率管理接口。
+  title: eth-scan API
+  version: "1.0"
+paths:
+  /balance/{user_id}:
+    get:
+      description: 查询指定用户所有代币余额（ETH/USDT/USDC），并附带人民币估值
+      parameters:
+      - description: 用户ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: token_type, balance, balance_str, cny_rate, cny_value
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: user_id 无效
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 错误信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 查询用户余额
+      tags:
+      - balance
+  /exchange-rate:
+    get:
+      description: 查询所有代币（ETH/USDT/USDC）对人民币的汇率
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 汇率列表
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 错误信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 查询所有汇率
+      tags:
+      - exchange-rate
+    post:
+      consumes:
+      - application/json
+      description: 新增或更新指定代币对人民币的汇率
+      parameters:
+      - description: 汇率信息
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 错误信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 新增或更新汇率
+      tags:
+      - exchange-rate
+  /wallet/batch-users:
+    get:
+      description: 从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'users: 用户列表(user_id, username, address, derive_index)'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 错误信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量创建用户
+      tags:
+      - wallet
+  /wallet/create:
+    get:
+      description: 生成 BIP-44 HD 钱包，助记词 AES-GCM 加密后入库，返回钱包 ID 与主地址（不返回助记词）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'wallet_id: 钱包ID, address: 主地址'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 错误信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建 HD 钱包
+      tags:
+      - wallet
+swagger: "2.0"
