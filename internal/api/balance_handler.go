@@ -18,8 +18,16 @@ var tokenDecimals = map[string]int64{
 	"USDC": 6,
 }
 
-// GetUserBalances GET /api/balance/:user_id
-// 查询用户所有代币余额，并转换为人民币估值
+// GetUserBalances godoc
+// @Summary      查询用户余额
+// @Description  查询指定用户所有代币余额（ETH/USDT/USDC），并附带人民币估值
+// @Tags         balance
+// @Produce      json
+// @Param        user_id  path      int  true  "用户ID"
+// @Success      200      {object}  map[string]interface{}  "token_type, balance, balance_str, cny_rate, cny_value"
+// @Failure      400      {object}  map[string]interface{}  "user_id 无效"
+// @Failure      500      {object}  map[string]interface{}  "错误信息"
+// @Router       /balance/{user_id} [get]
 func GetUserBalances(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("user_id"), 10, 64)
 	if err != nil {
@@ -71,8 +79,14 @@ func GetUserBalances(c *gin.Context) {
 	})
 }
 
-// GetExchangeRates GET /api/exchange-rate
-// 查询所有代币汇率
+// GetExchangeRates godoc
+// @Summary      查询所有汇率
+// @Description  查询所有代币（ETH/USDT/USDC）对人民币的汇率
+// @Tags         exchange-rate
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "汇率列表"
+// @Failure      500  {object}  map[string]interface{}  "错误信息"
+// @Router       /exchange-rate [get]
 func GetExchangeRates(c *gin.Context) {
 	rates, err := repository.GetAllExchangeRates()
 	if err != nil {
@@ -82,9 +96,17 @@ func GetExchangeRates(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": rates})
 }
 
-// UpdateExchangeRate POST /api/exchange-rate
-// 新增或更新汇率
-// Body: { "token_type": "ETH", "cny_rate": "18000.00" }
+// UpdateExchangeRate godoc
+// @Summary      新增或更新汇率
+// @Description  新增或更新指定代币对人民币的汇率
+// @Tags         exchange-rate
+// @Accept       json
+// @Produce      json
+// @Param        body  body      object  true  "汇率信息"  example({"token_type":"ETH","cny_rate":"18000.00"})
+// @Success      200   {object}  map[string]interface{}  "success"
+// @Failure      400   {object}  map[string]interface{}  "参数错误"
+// @Failure      500   {object}  map[string]interface{}  "错误信息"
+// @Router       /exchange-rate [post]
 func UpdateExchangeRate(c *gin.Context) {
 	var req struct {
 		TokenType string `json:"token_type" binding:"required"`

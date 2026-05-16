@@ -1,9 +1,15 @@
+// @title           eth-scan API
+// @version         1.0
+// @description     以太坊钱包扫块服务，提供 HD 钱包管理、余额查询及汇率管理接口。
+// @host            localhost:8080
+// @BasePath        /api
 package main
 
 import (
 	"context"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +17,7 @@ import (
 
 	"eth-scan/config"
 	"eth-scan/internal/api"
+	grpcserver "eth-scan/internal/grpcserver"
 	"eth-scan/internal/scanner"
 	"eth-scan/internal/wallet"
 	"eth-scan/pkg/ethclient"
@@ -81,6 +88,19 @@ func main() {
 		log.Printf("🚀 HTTP 服务启动，监听端口 %s", cfg.Server.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP 服务异常退出: %v", err)
+		}
+	}()
+
+	// 8. 启动 gRPC 服务
+	go func() {
+		lis, err := net.Listen("tcp", ":50051")
+		if err != nil {
+			log.Fatalf("gRPC 监听失败: %v", err)
+		}
+		gs := grpcserver.NewGRPCServer()
+		log.Println("🚀 gRPC 服务启动，监听端口 50051")
+		if err := gs.Serve(lis); err != nil {
+			log.Fatalf("gRPC 服务异常退出: %v", err)
 		}
 	}()
 	log.Println("🚀 eth-scan 已启动，按 Ctrl+C 退出")

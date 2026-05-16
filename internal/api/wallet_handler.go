@@ -12,8 +12,14 @@ import (
 	"eth-scan/repository"
 )
 
-// CreateHDWallet GET /api/wallet/create
-// 生成 BIP-44 HD 钱包，助记词 AES-GCM 加密后入库，返回钱包 ID 与主地址（不返回助记词）
+// CreateHDWallet godoc
+// @Summary      创建 HD 钱包
+// @Description  生成 BIP-44 HD 钱包，助记词 AES-GCM 加密后入库，返回钱包 ID 与主地址（不返回助记词）
+// @Tags         wallet
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "wallet_id: 钱包ID, address: 主地址"
+// @Failure      500  {object}  map[string]interface{}  "错误信息"
+// @Router       /wallet/create [get]
 func CreateHDWallet(c *gin.Context) {
 	cfg := config.GetConfig()
 
@@ -56,8 +62,14 @@ func CreateHDWallet(c *gin.Context) {
 	})
 }
 
-// BatchCreateUsers GET /api/wallet/batch-users
-// 从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+// BatchCreateUsers godoc
+// @Summary      批量创建用户
+// @Description  从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+// @Tags         wallet
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}  "users: 用户列表(user_id, username, address, derive_index)"
+// @Failure      500  {object}  map[string]interface{}  "错误信息"
+// @Router       /wallet/batch-users [get]
 func BatchCreateUsers(c *gin.Context) {
 	cfg := config.GetConfig()
 
