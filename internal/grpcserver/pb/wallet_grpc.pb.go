@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WalletService_CreateHDWallet_FullMethodName = "/wallet.WalletService/CreateHDWallet"
+	WalletService_CreateHDWallet_FullMethodName   = "/wallet.WalletService/CreateHDWallet"
+	WalletService_BatchCreateUsers_FullMethodName = "/wallet.WalletService/BatchCreateUsers"
 )
 
 // WalletServiceClient is the client API for WalletService service.
@@ -28,6 +29,8 @@ const (
 type WalletServiceClient interface {
 	// 创建 HD 钱包，对应 GET /api/wallet/create
 	CreateHDWallet(ctx context.Context, in *CreateHDWalletRequest, opts ...grpc.CallOption) (*CreateHDWalletResponse, error)
+	// 从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+	BatchCreateUsers(ctx context.Context, in *BatchCreateUsersRequest, opts ...grpc.CallOption) (*BatchCreateUsersResponse, error)
 }
 
 type walletServiceClient struct {
@@ -48,12 +51,24 @@ func (c *walletServiceClient) CreateHDWallet(ctx context.Context, in *CreateHDWa
 	return out, nil
 }
 
+func (c *walletServiceClient) BatchCreateUsers(ctx context.Context, in *BatchCreateUsersRequest, opts ...grpc.CallOption) (*BatchCreateUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchCreateUsersResponse)
+	err := c.cc.Invoke(ctx, WalletService_BatchCreateUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WalletServiceServer is the server API for WalletService service.
 // All implementations must embed UnimplementedWalletServiceServer
 // for forward compatibility.
 type WalletServiceServer interface {
 	// 创建 HD 钱包，对应 GET /api/wallet/create
 	CreateHDWallet(context.Context, *CreateHDWalletRequest) (*CreateHDWalletResponse, error)
+	// 从系统默认 HD 钱包派生 10 个子地址，各创建一个用户并绑定地址
+	BatchCreateUsers(context.Context, *BatchCreateUsersRequest) (*BatchCreateUsersResponse, error)
 	mustEmbedUnimplementedWalletServiceServer()
 }
 
@@ -66,6 +81,9 @@ type UnimplementedWalletServiceServer struct{}
 
 func (UnimplementedWalletServiceServer) CreateHDWallet(context.Context, *CreateHDWalletRequest) (*CreateHDWalletResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateHDWallet not implemented")
+}
+func (UnimplementedWalletServiceServer) BatchCreateUsers(context.Context, *BatchCreateUsersRequest) (*BatchCreateUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchCreateUsers not implemented")
 }
 func (UnimplementedWalletServiceServer) mustEmbedUnimplementedWalletServiceServer() {}
 func (UnimplementedWalletServiceServer) testEmbeddedByValue()                       {}
@@ -106,6 +124,24 @@ func _WalletService_CreateHDWallet_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WalletService_BatchCreateUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchCreateUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WalletServiceServer).BatchCreateUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WalletService_BatchCreateUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WalletServiceServer).BatchCreateUsers(ctx, req.(*BatchCreateUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WalletService_ServiceDesc is the grpc.ServiceDesc for WalletService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -116,6 +152,10 @@ var WalletService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateHDWallet",
 			Handler:    _WalletService_CreateHDWallet_Handler,
+		},
+		{
+			MethodName: "BatchCreateUsers",
+			Handler:    _WalletService_BatchCreateUsers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -58,6 +58,42 @@ func (*CreateHDWalletRequest) Descriptor() ([]byte, []int) {
 	return file_wallet_proto_rawDescGZIP(), []int{0}
 }
 
+type BatchCreateUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchCreateUsersRequest) Reset() {
+	*x = BatchCreateUsersRequest{}
+	mi := &file_wallet_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchCreateUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchCreateUsersRequest) ProtoMessage() {}
+
+func (x *BatchCreateUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wallet_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchCreateUsersRequest.ProtoReflect.Descriptor instead.
+func (*BatchCreateUsersRequest) Descriptor() ([]byte, []int) {
+	return file_wallet_proto_rawDescGZIP(), []int{1}
+}
+
 type CreateHDWalletResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	WalletId      uint64                 `protobuf:"varint,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
@@ -68,7 +104,7 @@ type CreateHDWalletResponse struct {
 
 func (x *CreateHDWalletResponse) Reset() {
 	*x = CreateHDWalletResponse{}
-	mi := &file_wallet_proto_msgTypes[1]
+	mi := &file_wallet_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -80,7 +116,7 @@ func (x *CreateHDWalletResponse) String() string {
 func (*CreateHDWalletResponse) ProtoMessage() {}
 
 func (x *CreateHDWalletResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wallet_proto_msgTypes[1]
+	mi := &file_wallet_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -93,7 +129,7 @@ func (x *CreateHDWalletResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateHDWalletResponse.ProtoReflect.Descriptor instead.
 func (*CreateHDWalletResponse) Descriptor() ([]byte, []int) {
-	return file_wallet_proto_rawDescGZIP(), []int{1}
+	return file_wallet_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreateHDWalletResponse) GetWalletId() uint64 {
@@ -110,17 +146,140 @@ func (x *CreateHDWalletResponse) GetAddress() string {
 	return ""
 }
 
+// BatchCreateUsersResponse 接口返回
+type BatchCreateUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*UserResult          `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchCreateUsersResponse) Reset() {
+	*x = BatchCreateUsersResponse{}
+	mi := &file_wallet_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchCreateUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchCreateUsersResponse) ProtoMessage() {}
+
+func (x *BatchCreateUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wallet_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchCreateUsersResponse.ProtoReflect.Descriptor instead.
+func (*BatchCreateUsersResponse) Descriptor() ([]byte, []int) {
+	return file_wallet_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BatchCreateUsersResponse) GetUsers() []*UserResult {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type UserResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Address       string                 `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	DeriveIndex   uint32                 `protobuf:"varint,4,opt,name=derive_index,json=deriveIndex,proto3" json:"derive_index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserResult) Reset() {
+	*x = UserResult{}
+	mi := &file_wallet_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserResult) ProtoMessage() {}
+
+func (x *UserResult) ProtoReflect() protoreflect.Message {
+	mi := &file_wallet_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserResult.ProtoReflect.Descriptor instead.
+func (*UserResult) Descriptor() ([]byte, []int) {
+	return file_wallet_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UserResult) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UserResult) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *UserResult) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *UserResult) GetDeriveIndex() uint32 {
+	if x != nil {
+		return x.DeriveIndex
+	}
+	return 0
+}
+
 var File_wallet_proto protoreflect.FileDescriptor
 
 const file_wallet_proto_rawDesc = "" +
 	"\n" +
 	"\fwallet.proto\x12\x06wallet\"\x17\n" +
-	"\x15CreateHDWalletRequest\"O\n" +
+	"\x15CreateHDWalletRequest\"\x19\n" +
+	"\x17BatchCreateUsersRequest\"O\n" +
 	"\x16CreateHDWalletResponse\x12\x1b\n" +
 	"\twallet_id\x18\x01 \x01(\x04R\bwalletId\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\tR\aaddress2`\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\"D\n" +
+	"\x18BatchCreateUsersResponse\x12(\n" +
+	"\x05users\x18\x01 \x03(\v2\x12.wallet.UserResultR\x05users\"~\n" +
+	"\n" +
+	"UserResult\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\x12!\n" +
+	"\fderive_index\x18\x04 \x01(\rR\vderiveIndex2\xb7\x01\n" +
 	"\rWalletService\x12O\n" +
-	"\x0eCreateHDWallet\x12\x1d.wallet.CreateHDWalletRequest\x1a\x1e.wallet.CreateHDWalletResponseB!Z\x1feth-scan/internal/grpcserver/pbb\x06proto3"
+	"\x0eCreateHDWallet\x12\x1d.wallet.CreateHDWalletRequest\x1a\x1e.wallet.CreateHDWalletResponse\x12U\n" +
+	"\x10BatchCreateUsers\x12\x1f.wallet.BatchCreateUsersRequest\x1a .wallet.BatchCreateUsersResponseB!Z\x1feth-scan/internal/grpcserver/pbb\x06proto3"
 
 var (
 	file_wallet_proto_rawDescOnce sync.Once
@@ -134,19 +293,25 @@ func file_wallet_proto_rawDescGZIP() []byte {
 	return file_wallet_proto_rawDescData
 }
 
-var file_wallet_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_wallet_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_wallet_proto_goTypes = []any{
-	(*CreateHDWalletRequest)(nil),  // 0: wallet.CreateHDWalletRequest
-	(*CreateHDWalletResponse)(nil), // 1: wallet.CreateHDWalletResponse
+	(*CreateHDWalletRequest)(nil),    // 0: wallet.CreateHDWalletRequest
+	(*BatchCreateUsersRequest)(nil),  // 1: wallet.BatchCreateUsersRequest
+	(*CreateHDWalletResponse)(nil),   // 2: wallet.CreateHDWalletResponse
+	(*BatchCreateUsersResponse)(nil), // 3: wallet.BatchCreateUsersResponse
+	(*UserResult)(nil),               // 4: wallet.UserResult
 }
 var file_wallet_proto_depIdxs = []int32{
-	0, // 0: wallet.WalletService.CreateHDWallet:input_type -> wallet.CreateHDWalletRequest
-	1, // 1: wallet.WalletService.CreateHDWallet:output_type -> wallet.CreateHDWalletResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	4, // 0: wallet.BatchCreateUsersResponse.users:type_name -> wallet.UserResult
+	0, // 1: wallet.WalletService.CreateHDWallet:input_type -> wallet.CreateHDWalletRequest
+	1, // 2: wallet.WalletService.BatchCreateUsers:input_type -> wallet.BatchCreateUsersRequest
+	2, // 3: wallet.WalletService.CreateHDWallet:output_type -> wallet.CreateHDWalletResponse
+	3, // 4: wallet.WalletService.BatchCreateUsers:output_type -> wallet.BatchCreateUsersResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_wallet_proto_init() }
@@ -160,7 +325,7 @@ func file_wallet_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wallet_proto_rawDesc), len(file_wallet_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
